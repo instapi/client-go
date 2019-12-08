@@ -50,8 +50,8 @@ type Field struct {
 	Required bool    `json:"required,omitempty"`
 }
 
-// ExtensionContentType returns the content type for the given file extension.
-func ExtensionContentType(ext string) (string, error) {
+// ExtContentType returns the content type for the given file extension.
+func ExtContentType(ext string) (string, error) {
 	v, exists := contentTypes[ext]
 
 	if !exists {

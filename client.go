@@ -1,14 +1,16 @@
-package client
+package instapi
 
 import (
 	"encoding/json"
 	"errors"
 	"fmt"
 	"io"
+	"io/ioutil"
 	"net/http"
 	"os"
 	"path/filepath"
 
+	"github.com/google/go-querystring/query"
 	"github.com/instapi/client-go/schema"
 )
 
@@ -107,9 +109,8 @@ func (c *Client) GetSchema(name string) (*schema.Schema, error) {
 }
 
 // DetectSchemaForFile infers the schema for the given file.
-func (c *Client) DetectSchemaForFile(name, filename string) (*schema.Schema, error) {
+func (c *Client) DetectSchemaForFile(options *DetectOptions, filename string) (*schema.Schema, error) {
 	ext := filepath.Ext(filename)
-
 	f, err := os.Open(filename)
 
 	if err != nil {
@@ -118,12 +119,26 @@ func (c *Client) DetectSchemaForFile(name, filename string) (*schema.Schema, err
 
 	defer f.Close() // nolint: errcheck
 
-	return c.DetectSchema(f, name, ext)
+	return c.DetectSchema(options, f, ext)
+}
+
+// DetectOptions represents schema detection options.
+type DetectOptions struct {
+	Name     string `url:"name"`
+	Table    string `url:"table,omitempty"`
+	FromCell string `url:"fromCell,omitempty"`
+	Limit    int    `url:"limit,omitempty"`
 }
 
 // DetectSchema attempts to detect the schema for the give reader.
-func (c *Client) DetectSchema(r io.Reader, name, ext string) (*schema.Schema, error) {
-	contentType, err := schema.ExtensionContentType(ext)
+func (c *Client) DetectSchema(options *DetectOptions, r io.Reader, ext string) (*schema.Schema, error) {
+	contentType, err := schema.ExtContentType(ext)
+
+	if err != nil {
+		return nil, err
+	}
+
+	query, err := query.Values(options)
 
 	if err != nil {
 		return nil, err
@@ -136,9 +151,7 @@ func (c *Client) DetectSchema(r io.Reader, name, ext string) (*schema.Schema, er
 	}
 
 	req.Header.Add("Content-Type", contentType)
-	q := req.URL.Query()
-	q.Add("name", name)
-	req.URL.RawQuery = q.Encode()
+	req.URL.RawQuery = query.Encode()
 	resp, err := c.doer.Do(req)
 
 	if err != nil {
@@ -148,7 +161,10 @@ func (c *Client) DetectSchema(r io.Reader, name, ext string) (*schema.Schema, er
 	defer resp.Body.Close() // nolint: errcheck
 
 	if resp.StatusCode != http.StatusOK {
-		return nil, fmt.Errorf("code: %d - %w", resp.StatusCode, ErrStatus)
+		b, _ := ioutil.ReadAll(resp.Body)
+		fmt.Println("Body", string(b))
+
+		return nil, fmt.Errorf("%d - %w", resp.StatusCode, ErrStatus)
 	}
 
 	var schema *schema.Schema
