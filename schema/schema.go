@@ -44,14 +44,22 @@ type Settings struct {
 
 // Field represents a schema field.
 type Field struct {
-	Name     string  `json:"name"`
-	Mapping  *string `json:"mapping,omitempty"`
-	Type     string  `json:"type"`
-	Required bool    `json:"required,omitempty"`
+	Name     string `json:"name"`
+	Mapping  string `json:"mapping,omitempty"`
+	Type     string `json:"type"`
+	Required bool   `json:"required,omitempty"`
 }
 
-// ExtContentType returns the content type for the given file extension.
-func ExtContentType(ext string) (string, error) {
+// DetectOptions represents schema detection options.
+type DetectOptions struct {
+	Name     string `url:"name"`
+	Table    string `url:"table,omitempty"`
+	FromCell string `url:"fromCell,omitempty"`
+	Limit    int    `url:"limit,omitempty"`
+}
+
+// ContentType returns the content type for the given file extension.
+func ContentType(ext string) (string, error) {
 	v, exists := contentTypes[ext]
 
 	if !exists {

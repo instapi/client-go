@@ -5,6 +5,7 @@ import (
 	"testing"
 
 	"github.com/davecgh/go-spew/spew"
+	"github.com/instapi/client-go/schema"
 	"github.com/stretchr/testify/require"
 )
 
@@ -25,7 +26,7 @@ func TestGetSchema(t *testing.T) {
 }
 
 func TestDetectSchemaForFile(t *testing.T) {
-	schema, err := newClient().DetectSchemaForFile(&DetectOptions{Name: "test"}, "testdata/companies.csv")
+	schema, err := newClient().DetectSchemaForFile(&schema.DetectOptions{Name: "test"}, "testdata/companies.csv")
 
 	require.NoError(t, err)
 

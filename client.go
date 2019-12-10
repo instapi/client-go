@@ -1,12 +1,13 @@
 package instapi
 
 import (
+	"bytes"
 	"encoding/json"
 	"errors"
 	"fmt"
 	"io"
-	"io/ioutil"
 	"net/http"
+	"net/url"
 	"os"
 	"path/filepath"
 
@@ -16,7 +17,8 @@ import (
 
 // Instapi client constants.
 const (
-	DefaultEndpoint = "https://api.instapi.com/v1/"
+	DefaultEndpoint    = "https://api.instapi.com/v1/"
+	defaultContentType = "application/json"
 )
 
 // Client related errors.
@@ -89,6 +91,52 @@ func (c *Client) newRequest(method, url string, body io.Reader) (*http.Request, 
 	return req, nil
 }
 
+func (c *Client) doRequest(method, endpoint string, statusCode int, contentType *string, query url.Values, src, dst interface{}) error {
+	var r io.Reader
+
+	if src != nil {
+		if v, ok := src.(io.Reader); ok {
+			r = v
+		} else {
+			buf := &bytes.Buffer{}
+			err := json.NewEncoder(buf).Encode(src)
+
+			if err != nil {
+				return err
+			}
+
+			r = buf
+		}
+	}
+
+	req, err := c.newRequest(method, endpoint, r)
+
+	if err != nil {
+		return err
+	}
+
+	if contentType != nil {
+		req.Header.Add("Content-Type", *contentType)
+	} else {
+		req.Header.Add("Content-Type", defaultContentType)
+	}
+
+	req.URL.RawQuery = query.Encode()
+	resp, err := c.doer.Do(req)
+
+	if err != nil {
+		return err
+	}
+
+	defer resp.Body.Close() // nolint: errcheck
+
+	if resp.StatusCode != statusCode {
+		return fmt.Errorf("expected %d, got %d - %w", statusCode, resp.StatusCode, ErrStatus)
+	}
+
+	return json.NewDecoder(resp.Body).Decode(dst)
+}
+
 // GetSchema gets the given schema.
 func (c *Client) GetSchema(name string) (*schema.Schema, error) {
 	req, err := c.newRequest(http.MethodGet, c.endpoint+"schemas/"+name, nil)
@@ -108,8 +156,8 @@ func (c *Client) GetSchema(name string) (*schema.Schema, error) {
 	return schema, json.NewDecoder(resp.Body).Decode(&schema)
 }
 
-// DetectSchemaForFile infers the schema for the given file.
-func (c *Client) DetectSchemaForFile(options *DetectOptions, filename string) (*schema.Schema, error) {
+// DetectSchemaForFile attempts to detect the schema for the given file.
+func (c *Client) DetectSchemaForFile(options *schema.DetectOptions, filename string) (*schema.Schema, error) {
 	ext := filepath.Ext(filename)
 	f, err := os.Open(filename)
 
@@ -122,17 +170,9 @@ func (c *Client) DetectSchemaForFile(options *DetectOptions, filename string) (*
 	return c.DetectSchema(options, f, ext)
 }
 
-// DetectOptions represents schema detection options.
-type DetectOptions struct {
-	Name     string `url:"name"`
-	Table    string `url:"table,omitempty"`
-	FromCell string `url:"fromCell,omitempty"`
-	Limit    int    `url:"limit,omitempty"`
-}
-
-// DetectSchema attempts to detect the schema for the give reader.
-func (c *Client) DetectSchema(options *DetectOptions, r io.Reader, ext string) (*schema.Schema, error) {
-	contentType, err := schema.ExtContentType(ext)
+// DetectSchema attempts to detect the schema for the given reader.
+func (c *Client) DetectSchema(options *schema.DetectOptions, r io.Reader, ext string) (*schema.Schema, error) {
+	contentType, err := schema.ContentType(ext)
 
 	if err != nil {
 		return nil, err
@@ -144,30 +184,79 @@ func (c *Client) DetectSchema(options *DetectOptions, r io.Reader, ext string) (
 		return nil, err
 	}
 
-	req, err := c.newRequest(http.MethodPost, c.endpoint+"schemas/detect", r)
+	var s *schema.Schema
 
-	if err != nil {
-		return nil, err
-	}
-
-	req.Header.Add("Content-Type", contentType)
-	req.URL.RawQuery = query.Encode()
-	resp, err := c.doer.Do(req)
-
-	if err != nil {
-		return nil, err
-	}
-
-	defer resp.Body.Close() // nolint: errcheck
-
-	if resp.StatusCode != http.StatusOK {
-		b, _ := ioutil.ReadAll(resp.Body)
-		fmt.Println("Body", string(b))
-
-		return nil, fmt.Errorf("%d - %w", resp.StatusCode, ErrStatus)
-	}
-
-	var schema *schema.Schema
-
-	return schema, json.NewDecoder(resp.Body).Decode(&schema)
+	return s, c.doRequest(
+		http.MethodPost,
+		c.endpoint+"schemas/detect",
+		http.StatusOK,
+		stringPtr(contentType),
+		query,
+		r,
+		&s,
+	)
 }
+
+// CreateSchema creates a new schema.
+func (c *Client) CreateSchema(s *schema.Schema) error {
+	return c.doRequest(
+		http.MethodPost,
+		c.endpoint+"schemas",
+		http.StatusCreated,
+		nil,
+		nil,
+		s,
+		nil,
+	)
+}
+
+// DetectAndCreateSchemaForFile attempts to detect and create
+// the schema for the given file.
+func (c *Client) DetectAndCreateSchemaForFile(options *schema.DetectOptions, filename string) (*schema.Schema, error) {
+	s, err := c.DetectSchemaForFile(options, filename)
+
+	if err != nil {
+		return nil, err
+	}
+
+	err = c.CreateSchema(s)
+
+	if err != nil {
+		return nil, err
+	}
+
+	return s, nil
+}
+
+// DetectAndCreateSchema attempts to detect and create
+// the schema for the given reader.
+func (c *Client) DetectAndCreateSchema(options *schema.DetectOptions, r io.Reader, ext string) (*schema.Schema, error) {
+	s, err := c.DetectSchema(options, r, ext)
+
+	if err != nil {
+		return nil, err
+	}
+
+	err = c.CreateSchema(s)
+
+	if err != nil {
+		return nil, err
+	}
+
+	return s, nil
+}
+
+// DeleteSchema deletes a schema.
+func (c *Client) DeleteSchema(name string) error {
+	return c.doRequest(
+		http.MethodDelete,
+		c.endpoint+"schemas/"+url.PathEscape(name),
+		http.StatusAccepted,
+		nil,
+		nil,
+		nil,
+		nil,
+	)
+}
+
+func stringPtr(s string) *string { return &s }
