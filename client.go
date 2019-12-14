@@ -134,7 +134,11 @@ func (c *Client) doRequest(method, endpoint string, statusCode int, contentType 
 		return fmt.Errorf("expected %d, got %d - %w", statusCode, resp.StatusCode, ErrStatus)
 	}
 
-	return json.NewDecoder(resp.Body).Decode(dst)
+	if dst != nil {
+		return json.NewDecoder(resp.Body).Decode(dst)
+	}
+
+	return nil
 }
 
 // GetSchema gets the given schema.
