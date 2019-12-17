@@ -2,23 +2,21 @@ package instapi
 
 import (
 	"bytes"
+	"context"
 	"encoding/json"
 	"errors"
 	"fmt"
 	"io"
 	"net/http"
 	"net/url"
-	"os"
 	"path/filepath"
 
-	"github.com/google/go-querystring/query"
-	"github.com/instapi/client-go/schema"
+	"github.com/instapi/client-go/types"
 )
 
 // Instapi client constants.
 const (
-	DefaultEndpoint    = "https://api.instapi.com/v1/"
-	defaultContentType = "application/json"
+	DefaultEndpoint = "https://api.instapi.com/v1/"
 )
 
 // Client related errors.
@@ -32,6 +30,20 @@ type Client struct {
 	doer     Doer
 	endpoint string
 	apiKey   string
+}
+
+// Options represents shared options.
+type Options struct {
+	Name       string `url:"name,omitempty"`
+	PrimaryKey string `url:"primaryKey,omitempty"`
+	SortKey    string `url:"sortKey,omitempty"`
+	Table      string `url:"table,omitempty"`
+	Sheet      string `url:"sheet,omitempty"`
+	FromCell   string `url:"fromCell,omitempty"`
+	ToCell     string `url:"toCell,omitempty"`
+	Skip       int    `url:"skip,omitempty"`
+	Limit      int    `url:"limit,omitempty"`
+	Headers    bool   `url:"headers,omitempty"`
 }
 
 // Doer defines the HTTP Do() interface.
@@ -79,8 +91,8 @@ func New(options ...Option) *Client {
 	return c
 }
 
-func (c *Client) newRequest(method, url string, body io.Reader) (*http.Request, error) {
-	req, err := http.NewRequest(method, url, body)
+func (c *Client) newRequest(ctx context.Context, method, url string, body io.Reader) (*http.Request, error) {
+	req, err := http.NewRequestWithContext(ctx, method, url, body)
 
 	if err != nil {
 		return nil, err
@@ -91,7 +103,7 @@ func (c *Client) newRequest(method, url string, body io.Reader) (*http.Request, 
 	return req, nil
 }
 
-func (c *Client) doRequest(method, endpoint string, statusCode int, contentType *string, query url.Values, src, dst interface{}) error {
+func (c *Client) doRequest(ctx context.Context, method, contentType, endpoint string, statusCode int, query url.Values, src, dst interface{}) error {
 	var r io.Reader
 
 	if src != nil {
@@ -109,18 +121,13 @@ func (c *Client) doRequest(method, endpoint string, statusCode int, contentType 
 		}
 	}
 
-	req, err := c.newRequest(method, endpoint, r)
+	req, err := c.newRequest(ctx, method, endpoint, r)
 
 	if err != nil {
 		return err
 	}
 
-	if contentType != nil {
-		req.Header.Add("Content-Type", *contentType)
-	} else {
-		req.Header.Add("Content-Type", defaultContentType)
-	}
-
+	req.Header.Add("Content-Type", contentType)
 	req.URL.RawQuery = query.Encode()
 	resp, err := c.doer.Do(req)
 
@@ -141,126 +148,6 @@ func (c *Client) doRequest(method, endpoint string, statusCode int, contentType 
 	return nil
 }
 
-// GetSchema gets the given schema.
-func (c *Client) GetSchema(name string) (*schema.Schema, error) {
-	req, err := c.newRequest(http.MethodGet, c.endpoint+"schemas/"+name, nil)
-
-	if err != nil {
-		return nil, err
-	}
-
-	resp, err := c.doer.Do(req)
-
-	if err != nil {
-		return nil, err
-	}
-
-	var schema *schema.Schema
-
-	return schema, json.NewDecoder(resp.Body).Decode(&schema)
+func getContentType(filename string) (string, error) {
+	return types.TypeFromExt(filepath.Ext(filename))
 }
-
-// DetectSchemaForFile attempts to detect the schema for the given file.
-func (c *Client) DetectSchemaForFile(options *schema.DetectOptions, filename string) (*schema.Schema, error) {
-	ext := filepath.Ext(filename)
-	f, err := os.Open(filename)
-
-	if err != nil {
-		return nil, err
-	}
-
-	defer f.Close() // nolint: errcheck
-
-	return c.DetectSchema(options, f, ext)
-}
-
-// DetectSchema attempts to detect the schema for the given reader.
-func (c *Client) DetectSchema(options *schema.DetectOptions, r io.Reader, ext string) (*schema.Schema, error) {
-	contentType, err := schema.ContentType(ext)
-
-	if err != nil {
-		return nil, err
-	}
-
-	query, err := query.Values(options)
-
-	if err != nil {
-		return nil, err
-	}
-
-	var s *schema.Schema
-
-	return s, c.doRequest(
-		http.MethodPost,
-		c.endpoint+"schemas/detect",
-		http.StatusOK,
-		stringPtr(contentType),
-		query,
-		r,
-		&s,
-	)
-}
-
-// CreateSchema creates a new schema.
-func (c *Client) CreateSchema(s *schema.Schema) error {
-	return c.doRequest(
-		http.MethodPost,
-		c.endpoint+"schemas",
-		http.StatusCreated,
-		nil,
-		nil,
-		s,
-		nil,
-	)
-}
-
-// DetectAndCreateSchemaForFile attempts to detect and create
-// the schema for the given file.
-func (c *Client) DetectAndCreateSchemaForFile(options *schema.DetectOptions, filename string) (*schema.Schema, error) {
-	s, err := c.DetectSchemaForFile(options, filename)
-
-	if err != nil {
-		return nil, err
-	}
-
-	err = c.CreateSchema(s)
-
-	if err != nil {
-		return nil, err
-	}
-
-	return s, nil
-}
-
-// DetectAndCreateSchema attempts to detect and create
-// the schema for the given reader.
-func (c *Client) DetectAndCreateSchema(options *schema.DetectOptions, r io.Reader, ext string) (*schema.Schema, error) {
-	s, err := c.DetectSchema(options, r, ext)
-
-	if err != nil {
-		return nil, err
-	}
-
-	err = c.CreateSchema(s)
-
-	if err != nil {
-		return nil, err
-	}
-
-	return s, nil
-}
-
-// DeleteSchema deletes a schema.
-func (c *Client) DeleteSchema(name string) error {
-	return c.doRequest(
-		http.MethodDelete,
-		c.endpoint+"schemas/"+url.PathEscape(name),
-		http.StatusAccepted,
-		nil,
-		nil,
-		nil,
-		nil,
-	)
-}
-
-func stringPtr(s string) *string { return &s }

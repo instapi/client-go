@@ -1,11 +1,11 @@
 package instapi
 
 import (
+	"context"
 	"net/http"
 	"testing"
 
 	"github.com/davecgh/go-spew/spew"
-	"github.com/instapi/client-go/schema"
 	"github.com/stretchr/testify/require"
 )
 
@@ -18,7 +18,7 @@ func newClient() *Client {
 }
 
 func TestGetSchema(t *testing.T) {
-	schema, err := newClient().GetSchema("companies")
+	schema, err := newClient().GetSchema(context.Background(), "companies")
 
 	require.NoError(t, err)
 
@@ -26,7 +26,7 @@ func TestGetSchema(t *testing.T) {
 }
 
 func TestDetectSchemaForFile(t *testing.T) {
-	schema, err := newClient().DetectSchemaForFile(&schema.DetectOptions{Name: "test"}, "testdata/companies.csv")
+	schema, err := newClient().DetectSchemaFromFile(context.Background(), &Options{Name: "test"}, "testdata/companies.csv")
 
 	require.NoError(t, err)
 
