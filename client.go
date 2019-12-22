@@ -8,7 +8,6 @@ import (
 	"fmt"
 	"io"
 	"net/http"
-	"net/url"
 	"path/filepath"
 
 	"github.com/instapi/client-go/types"
@@ -32,48 +31,34 @@ type Client struct {
 	apiKey   string
 }
 
-// Options represents shared options.
-type Options struct {
-	Name       string `url:"name,omitempty"`
-	PrimaryKey string `url:"primaryKey,omitempty"`
-	SortKey    string `url:"sortKey,omitempty"`
-	Table      string `url:"table,omitempty"`
-	Sheet      string `url:"sheet,omitempty"`
-	FromCell   string `url:"fromCell,omitempty"`
-	ToCell     string `url:"toCell,omitempty"`
-	Skip       int    `url:"skip,omitempty"`
-	Limit      int    `url:"limit,omitempty"`
-	Headers    bool   `url:"headers,omitempty"`
-}
-
 // Doer defines the HTTP Do() interface.
 type Doer interface {
 	Do(*http.Request) (*http.Response, error)
 }
 
-// Option represents a client option.
-type Option func(*Client)
+// ClientOption represents a client option.
+type ClientOption func(*Client)
 
-func WithHTTPClient(doer Doer) Option {
+func HTTPClient(doer Doer) ClientOption {
 	return func(c *Client) {
 		c.doer = doer
 	}
 }
 
-func WithEndpoint(endpoint string) Option {
+func Endpoint(endpoint string) ClientOption {
 	return func(c *Client) {
 		c.endpoint = endpoint
 	}
 }
 
-func WithAPIKey(key string) Option {
+func APIKey(key string) ClientOption {
 	return func(c *Client) {
 		c.apiKey = "Key " + key
 	}
 }
 
 // New initializes a new client instance.
-func New(options ...Option) *Client {
+func New(options ...ClientOption) *Client {
 	c := &Client{}
 
 	for _, option := range options {
@@ -103,7 +88,7 @@ func (c *Client) newRequest(ctx context.Context, method, url string, body io.Rea
 	return req, nil
 }
 
-func (c *Client) doRequest(ctx context.Context, method, contentType, endpoint string, statusCode int, query url.Values, src, dst interface{}) error {
+func (c *Client) doRequest(ctx context.Context, method, contentType, endpoint string, statusCode int, src, dst interface{}, options ...RequestOption) (*http.Response, error) {
 	var r io.Reader
 
 	if src != nil {
@@ -114,7 +99,7 @@ func (c *Client) doRequest(ctx context.Context, method, contentType, endpoint st
 			err := json.NewEncoder(buf).Encode(src)
 
 			if err != nil {
-				return err
+				return nil, err
 			}
 
 			r = buf
@@ -124,28 +109,34 @@ func (c *Client) doRequest(ctx context.Context, method, contentType, endpoint st
 	req, err := c.newRequest(ctx, method, endpoint, r)
 
 	if err != nil {
-		return err
+		return nil, err
 	}
 
 	req.Header.Add("Content-Type", contentType)
-	req.URL.RawQuery = query.Encode()
+	q := req.URL.Query()
+
+	for _, option := range options {
+		option(&q)
+	}
+
+	req.URL.RawQuery = q.Encode()
 	resp, err := c.doer.Do(req)
 
 	if err != nil {
-		return err
+		return nil, err
 	}
 
 	defer resp.Body.Close() // nolint: errcheck
 
 	if resp.StatusCode != statusCode {
-		return fmt.Errorf("expected %d, got %d - %w", statusCode, resp.StatusCode, ErrStatus)
+		return nil, fmt.Errorf("expected %d, got %d - %w", statusCode, resp.StatusCode, ErrStatus)
 	}
 
 	if dst != nil {
-		return json.NewDecoder(resp.Body).Decode(dst)
+		return resp, json.NewDecoder(resp.Body).Decode(dst)
 	}
 
-	return nil
+	return resp, nil
 }
 
 func getContentType(filename string) (string, error) {

@@ -11,9 +11,9 @@ import (
 
 func newClient() *Client {
 	return New(
-		WithEndpoint("http://127.0.0.1:8282/v1/"),
-		WithHTTPClient(http.DefaultClient),
-		WithAPIKey("DEADBEEFDEADBEEFDEADBEEFDEADBEEF"),
+		Endpoint("http://127.0.0.1:8282/v1/"),
+		HTTPClient(http.DefaultClient),
+		APIKey("DEADBEEFDEADBEEFDEADBEEFDEADBEEF"),
 	)
 }
 
@@ -26,7 +26,7 @@ func TestGetSchema(t *testing.T) {
 }
 
 func TestDetectSchemaForFile(t *testing.T) {
-	schema, err := newClient().DetectSchemaFromFile(context.Background(), &Options{Name: "test"}, "testdata/companies.csv")
+	schema, err := newClient().DetectSchemaFromFile(context.Background(), "test", "testdata/companies.csv")
 
 	require.NoError(t, err)
 
