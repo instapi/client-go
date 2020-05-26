@@ -6,12 +6,9 @@ import (
 	"net/http"
 	"net/url"
 	"os"
-	"strings"
 
 	"github.com/instapi/client-go/schema"
 	"github.com/instapi/client-go/types"
-
-	"github.com/tomnomnom/linkheader"
 )
 
 // GetSchema gets the given schema.
@@ -48,21 +45,13 @@ func (c *Client) GetSchemas(ctx context.Context, options ...RequestOption) ([]*s
 		return nil, "", err
 	}
 
-	for _, v := range linkheader.Parse(strings.TrimPrefix(resp.Header.Get("link"), "Link:")) {
-		if v.Rel != "next" {
-			continue
-		}
+	next, err := nextLink(resp)
 
-		u, err := url.Parse(v.URL)
-
-		if err != nil {
-			return nil, "", err
-		}
-
-		return s, u.Query().Get("offset"), nil
+	if err != nil {
+		return nil, "", err
 	}
 
-	return s, "", nil
+	return s, next, nil
 }
 
 // DetectSchemaForFile attempts to detect the schema for the given file.
@@ -159,7 +148,7 @@ func (c *Client) DeleteSchema(ctx context.Context, name string) error {
 		http.MethodDelete,
 		types.JSON,
 		c.endpoint+"schemas/"+url.PathEscape(name),
-		http.StatusAccepted,
+		0,
 		nil,
 		nil,
 	)
