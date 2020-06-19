@@ -20,6 +20,12 @@ func Limit(limit int) RequestOption {
 	}
 }
 
+func Skip(skip int) RequestOption {
+	return func(u *url.Values) {
+		u.Set("skip", strconv.Itoa(skip))
+	}
+}
+
 func Table(table string) RequestOption {
 	return func(u *url.Values) {
 		u.Set("table", table)
