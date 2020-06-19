@@ -84,7 +84,7 @@ func (c *Client) DetectSchema(ctx context.Context, name, contentType string, r i
 		contentType,
 		c.endpoint+"schemas/detect",
 		http.StatusOK,
-		&io.LimitedReader{R: r, N: fileSizeLimit},
+		io.LimitReader(r, fileSizeLimit),
 		&s,
 		append(options, Name(name))...,
 	)
