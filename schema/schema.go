@@ -12,6 +12,7 @@ type Schema struct {
 
 // Settings represents schema settings.
 type Settings struct {
+	Delimiter   *string `json:"delimiter,omitempty"`
 	QuoteValues *string `json:"quoteValues,omitempty"`
 }
 
