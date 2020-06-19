@@ -3,6 +3,7 @@ package types
 import (
 	"errors"
 	"fmt"
+	"strings"
 )
 
 // Package errors.
@@ -41,7 +42,7 @@ var contentTypes = map[string]string{
 
 // TypeFromExt returns the content type for the given file extension.
 func TypeFromExt(ext string) (string, error) {
-	v, exists := contentTypes[ext]
+	v, exists := contentTypes[strings.ToLower(ext)]
 
 	if !exists {
 		return "", fmt.Errorf("extension: %s - %w", ext, ErrUnsupportedExtension)
