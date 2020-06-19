@@ -54,7 +54,7 @@ func (c *Client) GetSchemas(ctx context.Context, options ...RequestOption) ([]*s
 	return s, next, nil
 }
 
-// DetectSchemaForFile attempts to detect the schema for the given file.
+// DetectSchemaFromFile attempts to detect the schema for the given file.
 func (c *Client) DetectSchemaFromFile(ctx context.Context, name, filename string, options ...RequestOption) (*schema.Schema, error) {
 	contentType, err := getContentType(filename)
 
@@ -75,6 +75,8 @@ func (c *Client) DetectSchemaFromFile(ctx context.Context, name, filename string
 
 // DetectSchema attempts to detect the schema for the given reader.
 func (c *Client) DetectSchema(ctx context.Context, name, contentType string, r io.Reader, options ...RequestOption) (*schema.Schema, error) {
+	const fileSizeLimit = 16 * 1024 * 1024
+
 	var s *schema.Schema
 	_, err := c.doRequest(
 		ctx,
@@ -82,7 +84,7 @@ func (c *Client) DetectSchema(ctx context.Context, name, contentType string, r i
 		contentType,
 		c.endpoint+"schemas/detect",
 		http.StatusOK,
-		r,
+		&io.LimitedReader{R: r, N: fileSizeLimit},
 		&s,
 		append(options, Name(name))...,
 	)
@@ -105,8 +107,8 @@ func (c *Client) CreateSchema(ctx context.Context, s *schema.Schema) error {
 	return err
 }
 
-// DetectAndCreateSchemaForFile attempts to detect and create
-// the schema for the given file.
+// DetectAndCreateSchemaFromFile attempts to detect and create the schema for
+// the given file.
 func (c *Client) DetectAndCreateSchemaFromFile(ctx context.Context, name, filename string, options ...RequestOption) (*schema.Schema, error) {
 	s, err := c.DetectSchemaFromFile(ctx, name, filename, options...)
 
@@ -123,8 +125,7 @@ func (c *Client) DetectAndCreateSchemaFromFile(ctx context.Context, name, filena
 	return s, nil
 }
 
-// DetectAndCreateSchema attempts to detect and create
-// the schema for the given reader.
+// DetectAndCreateSchema attempts to detect and create the schema for a reader.
 func (c *Client) DetectAndCreateSchema(ctx context.Context, name, contentType string, r io.Reader, options ...RequestOption) (*schema.Schema, error) {
 	s, err := c.DetectSchema(ctx, name, contentType, r, options...)
 
