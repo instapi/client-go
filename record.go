@@ -27,7 +27,7 @@ func (c *Client) GetRecords(ctx context.Context, schema string, dst interface{},
 }
 
 // GetRecord gets a record.
-func (c *Client) GetRecord(ctx context.Context, schema, id string, dst interface{}) error {
+func (c *Client) GetRecord(ctx context.Context, schema, id string, dst interface{}, options ...RequestOption) error {
 	_, err := c.doRequest(
 		ctx,
 		http.MethodGet,
@@ -36,13 +36,14 @@ func (c *Client) GetRecord(ctx context.Context, schema, id string, dst interface
 		http.StatusOK,
 		nil,
 		dst,
+		options...,
 	)
 
 	return err
 }
 
 // CreateRecord makes a create record request.
-func (c *Client) CreateRecord(ctx context.Context, schema string, src, dst interface{}) error {
+func (c *Client) CreateRecord(ctx context.Context, schema string, src, dst interface{}, options ...RequestOption) error {
 	_, err := c.doRequest(
 		ctx,
 		http.MethodPost,
@@ -51,6 +52,7 @@ func (c *Client) CreateRecord(ctx context.Context, schema string, src, dst inter
 		http.StatusCreated,
 		src,
 		dst,
+		options...,
 	)
 
 	return err
@@ -97,7 +99,7 @@ func (c *Client) CreateRecordsFromFile(ctx context.Context, schema, filename str
 }
 
 // UpdateRecord updates a record.
-func (c *Client) UpdateRecord(ctx context.Context, schema, id string, src interface{}, dst interface{}) error {
+func (c *Client) UpdateRecord(ctx context.Context, schema, id string, src interface{}, dst interface{}, options ...RequestOption) error {
 	_, err := c.doRequest(
 		ctx,
 		http.MethodPut,
@@ -106,13 +108,14 @@ func (c *Client) UpdateRecord(ctx context.Context, schema, id string, src interf
 		http.StatusOK,
 		src,
 		dst,
+		options...,
 	)
 
 	return err
 }
 
 // PatchRecord patches a record.
-func (c *Client) PatchRecord(ctx context.Context, schema, id string, src interface{}, dst interface{}) error {
+func (c *Client) PatchRecord(ctx context.Context, schema, id string, src interface{}, dst interface{}, options ...RequestOption) error {
 	_, err := c.doRequest(
 		ctx,
 		http.MethodPatch,
@@ -121,13 +124,14 @@ func (c *Client) PatchRecord(ctx context.Context, schema, id string, src interfa
 		http.StatusOK,
 		src,
 		dst,
+		options...,
 	)
 
 	return err
 }
 
 // DeleteRecord deletes a record.
-func (c *Client) DeleteRecord(ctx context.Context, schema, id string) error {
+func (c *Client) DeleteRecord(ctx context.Context, schema, id string, options ...RequestOption) error {
 	_, err := c.doRequest(
 		ctx,
 		http.MethodDelete,
@@ -136,13 +140,14 @@ func (c *Client) DeleteRecord(ctx context.Context, schema, id string) error {
 		http.StatusNoContent,
 		nil,
 		nil,
+		options...,
 	)
 
 	return err
 }
 
 // DeleteRecords deletes a batch of records.
-func (c *Client) DeleteRecords(ctx context.Context, schema string, IDs ...string) error {
+func (c *Client) DeleteRecords(ctx context.Context, schema string, IDs []string, options ...RequestOption) error {
 	_, err := c.doRequest(
 		ctx,
 		http.MethodDelete,
@@ -151,6 +156,7 @@ func (c *Client) DeleteRecords(ctx context.Context, schema string, IDs ...string
 		http.StatusNoContent,
 		IDs,
 		nil,
+		options...,
 	)
 
 	return err

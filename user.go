@@ -10,7 +10,7 @@ import (
 )
 
 // CreateUser creates a new user.
-func (c *Client) CreateUser(ctx context.Context, u *user.User) (*user.User, error) {
+func (c *Client) CreateUser(ctx context.Context, u *user.User, options ...RequestOption) (*user.User, error) {
 	var n *user.User
 	_, err := c.doRequest(
 		ctx,
@@ -20,6 +20,7 @@ func (c *Client) CreateUser(ctx context.Context, u *user.User) (*user.User, erro
 		http.StatusCreated,
 		u,
 		&n,
+		options...,
 	)
 
 	return n, err
@@ -60,7 +61,7 @@ func (c *Client) GetUser(ctx context.Context, userID uint64, options ...RequestO
 }
 
 // UpdateUser updates a user.
-func (c *Client) UpdateUser(ctx context.Context, userID uint64, u *user.User) (*user.User, error) {
+func (c *Client) UpdateUser(ctx context.Context, userID uint64, u *user.User, options ...RequestOption) (*user.User, error) {
 	var n *user.User
 	_, err := c.doRequest(
 		ctx,
@@ -70,13 +71,14 @@ func (c *Client) UpdateUser(ctx context.Context, userID uint64, u *user.User) (*
 		0,
 		u,
 		&n,
+		options...,
 	)
 
 	return n, err
 }
 
 // DeleteUser deletes a user.
-func (c *Client) DeleteUser(ctx context.Context, userID uint64) error {
+func (c *Client) DeleteUser(ctx context.Context, userID uint64, options ...RequestOption) error {
 	_, err := c.doRequest(
 		ctx,
 		http.MethodDelete,
@@ -85,6 +87,7 @@ func (c *Client) DeleteUser(ctx context.Context, userID uint64) error {
 		0,
 		nil,
 		nil,
+		options...,
 	)
 
 	return err

@@ -12,7 +12,7 @@ import (
 )
 
 // GetSchema gets the given schema.
-func (c *Client) GetSchema(ctx context.Context, name string) (*schema.Schema, error) {
+func (c *Client) GetSchema(ctx context.Context, name string, options ...RequestOption) (*schema.Schema, error) {
 	var s *schema.Schema
 	_, err := c.doRequest(
 		ctx,
@@ -22,6 +22,7 @@ func (c *Client) GetSchema(ctx context.Context, name string) (*schema.Schema, er
 		http.StatusOK,
 		nil,
 		&s,
+		options...,
 	)
 
 	return s, err
@@ -93,7 +94,7 @@ func (c *Client) DetectSchema(ctx context.Context, name, contentType string, r i
 }
 
 // CreateSchema creates a new schema.
-func (c *Client) CreateSchema(ctx context.Context, s *schema.Schema) error {
+func (c *Client) CreateSchema(ctx context.Context, s *schema.Schema, options ...RequestOption) error {
 	_, err := c.doRequest(
 		ctx,
 		http.MethodPost,
@@ -102,6 +103,7 @@ func (c *Client) CreateSchema(ctx context.Context, s *schema.Schema) error {
 		http.StatusCreated,
 		s,
 		nil,
+		options...,
 	)
 
 	return err
@@ -116,7 +118,7 @@ func (c *Client) DetectAndCreateSchemaFromFile(ctx context.Context, name, filena
 		return nil, err
 	}
 
-	err = c.CreateSchema(ctx, s)
+	err = c.CreateSchema(ctx, s, options...)
 
 	if err != nil {
 		return nil, err
@@ -133,7 +135,7 @@ func (c *Client) DetectAndCreateSchema(ctx context.Context, name, contentType st
 		return nil, err
 	}
 
-	err = c.CreateSchema(ctx, s)
+	err = c.CreateSchema(ctx, s, options...)
 
 	if err != nil {
 		return nil, err
@@ -143,7 +145,7 @@ func (c *Client) DetectAndCreateSchema(ctx context.Context, name, contentType st
 }
 
 // DeleteSchema deletes a schema.
-func (c *Client) DeleteSchema(ctx context.Context, name string) error {
+func (c *Client) DeleteSchema(ctx context.Context, name string, options ...RequestOption) error {
 	_, err := c.doRequest(
 		ctx,
 		http.MethodDelete,
@@ -152,6 +154,7 @@ func (c *Client) DeleteSchema(ctx context.Context, name string) error {
 		0,
 		nil,
 		nil,
+		options...,
 	)
 
 	return err

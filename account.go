@@ -10,7 +10,7 @@ import (
 )
 
 // CreateAccount creates a new account.
-func (c *Client) CreateAccount(ctx context.Context, req *account.CreateAccountRequest) (*account.CreateAccountResponse, error) {
+func (c *Client) CreateAccount(ctx context.Context, req *account.CreateAccountRequest, options ...RequestOption) (*account.CreateAccountResponse, error) {
 	var resp *account.CreateAccountResponse
 	_, err := c.doRequest(
 		ctx,
@@ -20,6 +20,7 @@ func (c *Client) CreateAccount(ctx context.Context, req *account.CreateAccountRe
 		http.StatusCreated,
 		req,
 		&resp,
+		options...,
 	)
 
 	return resp, err
@@ -87,7 +88,7 @@ func (c *Client) GetAccount(ctx context.Context, id string, options ...RequestOp
 }
 
 // UpdateAccount updates an account.
-func (c *Client) UpdateAccount(ctx context.Context, id string, a *account.Account) (*account.Account, error) {
+func (c *Client) UpdateAccount(ctx context.Context, id string, a *account.Account, options ...RequestOption) (*account.Account, error) {
 	var n *account.Account
 	_, err := c.doRequest(
 		ctx,
@@ -97,13 +98,14 @@ func (c *Client) UpdateAccount(ctx context.Context, id string, a *account.Accoun
 		0,
 		a,
 		&n,
+		options...,
 	)
 
 	return n, err
 }
 
 // DeleteAccount deletes an account.
-func (c *Client) DeleteAccount(ctx context.Context, id string) error {
+func (c *Client) DeleteAccount(ctx context.Context, id string, options ...RequestOption) error {
 	_, err := c.doRequest(
 		ctx,
 		http.MethodDelete,
@@ -112,12 +114,13 @@ func (c *Client) DeleteAccount(ctx context.Context, id string) error {
 		0,
 		nil,
 		nil,
+		options...,
 	)
 
 	return err
 }
 
-// GetUsers gets account users.
+// GetAccountUsers gets account users.
 func (c *Client) GetAccountUsers(ctx context.Context, id string, options ...RequestOption) ([]*user.User, string, error) {
 	var u []*user.User
 	resp, err := c.doRequest(
@@ -145,14 +148,14 @@ func (c *Client) GetAccountUsers(ctx context.Context, id string, options ...Requ
 }
 
 // CreateUserWithRole creates a user with a role on an account.
-func (c *Client) CreateUserWithRole(ctx context.Context, accountID string, u *user.User, role string) (*user.User, string, error) {
+func (c *Client) CreateUserWithRole(ctx context.Context, accountID string, u *user.User, role string, options ...RequestOption) (*user.User, string, error) {
 	u, err := c.CreateUser(ctx, u)
 
 	if err != nil {
 		return nil, "", err
 	}
 
-	r, err := c.CreateRole(ctx, accountID, u.Email, role)
+	r, err := c.CreateRole(ctx, accountID, u.Email, role, options...)
 
 	if err != nil {
 		return nil, "", err
