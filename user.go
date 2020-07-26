@@ -9,24 +9,6 @@ import (
 	"github.com/instapi/client-go/user"
 )
 
-// // SignIn signs in a user, returning an API key.
-// func (c *Client) SignIn(ctx context.Context, accountID uint64, s *user.SignIn) (string, error) {
-// 	var k struct {
-// 		APIKey string `json:"apiKey"`
-// 	}
-// 	_, err := c.doRequest(
-// 		ctx,
-// 		http.MethodPost,
-// 		types.JSON,
-// 		c.endpoint+"accounts/"+strconv.FormatUint(accountID, 10)+"/signin",
-// 		http.StatusOK,
-// 		s,
-// 		&k,
-// 	)
-
-// 	return k.APIKey, err
-// }
-
 // CreateUser creates a new user.
 func (c *Client) CreateUser(ctx context.Context, u *user.User) (*user.User, error) {
 	var n *user.User
