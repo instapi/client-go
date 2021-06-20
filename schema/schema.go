@@ -7,13 +7,17 @@ type Schema struct {
 	Indexed    []string  `json:"indexed,omitempty"`
 	Count      int       `json:"count,omitempty"`
 	Settings   *Settings `json:"settings,omitempty"`
-	Fields     []Field   `json:"fields"`
+	Fields     []*Field  `json:"fields"`
 }
 
 // Settings represents schema settings.
 type Settings struct {
-	Delimiter   *string `json:"delimiter,omitempty"`
-	QuoteValues *string `json:"quoteValues,omitempty"`
+	ExternalID     string `json:"externalId,omitempty"`
+	Sheet          string `json:"sheet,omitempty"`
+	Delimiter      string `json:"delimiter,omitempty"`
+	QuoteValues    string `json:"quoteValues,omitempty"`
+	InputFunction  string `json:"inputFunction,omitempty"`
+	OutputFunction string `json:"outputFunction,omitempty"`
 }
 
 // Field represents a schema field.
@@ -23,4 +27,10 @@ type Field struct {
 	Type     string  `json:"type"`
 	Format   *string `json:"format,omitempty"`
 	Required bool    `json:"required,omitempty"`
+}
+
+// Import represents a schema import.
+type Import struct {
+	Count  int     `json:"count"`
+	Schema *Schema `json:"schema"`
 }

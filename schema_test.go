@@ -2,7 +2,6 @@ package instapi
 
 import (
 	"context"
-	"net/http"
 	"testing"
 
 	"github.com/davecgh/go-spew/spew"
@@ -12,23 +11,20 @@ import (
 func newClient() *Client {
 	return New(
 		Endpoint("http://127.0.0.1:8282/v1/"),
-		HTTPClient(http.DefaultClient),
-		APIKey("DEADBEEFDEADBEEFDEADBEEFDEADBEEF"),
+		Token("DEADBEEFDEADBEEFDEADBEEFDEADBEEF"),
 	)
 }
 
 func TestGetSchema(t *testing.T) {
-	schema, err := newClient().GetSchema(context.Background(), "companies")
+	schema, err := newClient().GetSchema(context.Background(), "instapi", "companies")
 
 	require.NoError(t, err)
-
 	spew.Dump(schema)
 }
 
 func TestDetectSchemaForFile(t *testing.T) {
-	schema, err := newClient().DetectSchemaFromFile(context.Background(), "test", "testdata/companies.csv")
+	schema, err := newClient().DetectSchemasFromFile(context.Background(), "test", "testdata/companies.csv")
 
 	require.NoError(t, err)
-
 	spew.Dump(schema)
 }

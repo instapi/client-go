@@ -3,6 +3,7 @@ package instapi
 import (
 	"context"
 	"net/http"
+	"net/url"
 
 	"github.com/instapi/client-go/account"
 	"github.com/instapi/client-go/types"
@@ -10,9 +11,9 @@ import (
 )
 
 // CreateAccount creates a new account.
-func (c *Client) CreateAccount(ctx context.Context, req *account.CreateAccountRequest, options ...RequestOption) (*account.CreateAccountResponse, error) {
-	var resp *account.CreateAccountResponse
-	_, err := c.doRequest(
+func (c *Client) CreateAccount(ctx context.Context, req *account.CreateAccountRequest, options ...RequestOption) (*account.Account, error) {
+	var resp *account.Account
+	_, _, err := c.doRequest(
 		ctx,
 		http.MethodPost,
 		types.JSON,
@@ -29,7 +30,7 @@ func (c *Client) CreateAccount(ctx context.Context, req *account.CreateAccountRe
 // GetAccounts gets accounts.
 func (c *Client) GetAccounts(ctx context.Context, options ...RequestOption) ([]*account.Account, string, error) {
 	var a []*account.Account
-	resp, err := c.doRequest(
+	resp, _, err := c.doRequest(
 		ctx,
 		http.MethodGet,
 		types.JSON,
@@ -56,7 +57,7 @@ func (c *Client) GetAccounts(ctx context.Context, options ...RequestOption) ([]*
 // Account gets the current acting account.
 func (c *Client) Account(ctx context.Context, options ...RequestOption) (*account.Account, error) {
 	var a *account.Account
-	_, err := c.doRequest(
+	_, _, err := c.doRequest(
 		ctx,
 		http.MethodGet,
 		types.JSON,
@@ -71,13 +72,13 @@ func (c *Client) Account(ctx context.Context, options ...RequestOption) (*accoun
 }
 
 // GetAccount gets the account.
-func (c *Client) GetAccount(ctx context.Context, id string, options ...RequestOption) (*account.Account, error) {
+func (c *Client) GetAccount(ctx context.Context, name string, options ...RequestOption) (*account.Account, error) {
 	var a *account.Account
-	_, err := c.doRequest(
+	_, _, err := c.doRequest(
 		ctx,
 		http.MethodGet,
 		types.JSON,
-		c.endpoint+"accounts/"+id,
+		c.endpoint+"accounts/"+url.PathEscape(name),
 		http.StatusOK,
 		nil,
 		&a,
@@ -88,13 +89,13 @@ func (c *Client) GetAccount(ctx context.Context, id string, options ...RequestOp
 }
 
 // UpdateAccount updates an account.
-func (c *Client) UpdateAccount(ctx context.Context, id string, a *account.Account, options ...RequestOption) (*account.Account, error) {
+func (c *Client) UpdateAccount(ctx context.Context, name string, a *account.Account, options ...RequestOption) (*account.Account, error) {
 	var n *account.Account
-	_, err := c.doRequest(
+	_, _, err := c.doRequest(
 		ctx,
 		http.MethodPut,
 		types.JSON,
-		c.endpoint+"accounts/"+id,
+		c.endpoint+"accounts/"+url.PathEscape(name),
 		0,
 		a,
 		&n,
@@ -105,12 +106,12 @@ func (c *Client) UpdateAccount(ctx context.Context, id string, a *account.Accoun
 }
 
 // DeleteAccount deletes an account.
-func (c *Client) DeleteAccount(ctx context.Context, id string, options ...RequestOption) error {
-	_, err := c.doRequest(
+func (c *Client) DeleteAccount(ctx context.Context, name string, options ...RequestOption) error {
+	_, _, err := c.doRequest(
 		ctx,
 		http.MethodDelete,
 		types.JSON,
-		c.endpoint+"accounts/"+id,
+		c.endpoint+"accounts/"+url.PathEscape(name),
 		0,
 		nil,
 		nil,
@@ -121,13 +122,13 @@ func (c *Client) DeleteAccount(ctx context.Context, id string, options ...Reques
 }
 
 // GetAccountUsers gets account users.
-func (c *Client) GetAccountUsers(ctx context.Context, id string, options ...RequestOption) ([]*user.User, string, error) {
+func (c *Client) GetAccountUsers(ctx context.Context, name string, options ...RequestOption) ([]*user.User, string, error) {
 	var u []*user.User
-	resp, err := c.doRequest(
+	resp, _, err := c.doRequest(
 		ctx,
 		http.MethodGet,
 		types.JSON,
-		c.endpoint+"accounts/"+id+"/users",
+		c.endpoint+"accounts/"+url.PathEscape(name)+"/users",
 		http.StatusOK,
 		nil,
 		&u,
@@ -148,18 +149,18 @@ func (c *Client) GetAccountUsers(ctx context.Context, id string, options ...Requ
 }
 
 // CreateUserWithRole creates a user with a role on an account.
-func (c *Client) CreateUserWithRole(ctx context.Context, accountID string, u *user.User, role string, options ...RequestOption) (*user.User, string, error) {
+func (c *Client) CreateUserWithRole(ctx context.Context, account string, u *user.User, role string, options ...RequestOption) (*user.User, error) {
 	u, err := c.CreateUser(ctx, u)
 
 	if err != nil {
-		return nil, "", err
+		return nil, err
 	}
 
-	r, err := c.CreateRole(ctx, accountID, u.Email, role, options...)
+	err = c.AssignRole(ctx, account, u.Email, role, options...)
 
 	if err != nil {
-		return nil, "", err
+		return nil, err
 	}
 
-	return u, r.APIKey, nil
+	return u, nil
 }

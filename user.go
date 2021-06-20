@@ -12,7 +12,7 @@ import (
 // CreateUser creates a new user.
 func (c *Client) CreateUser(ctx context.Context, u *user.User, options ...RequestOption) (*user.User, error) {
 	var n *user.User
-	_, err := c.doRequest(
+	_, _, err := c.doRequest(
 		ctx,
 		http.MethodPost,
 		types.JSON,
@@ -29,7 +29,7 @@ func (c *Client) CreateUser(ctx context.Context, u *user.User, options ...Reques
 // User gets the current acting user.
 func (c *Client) User(ctx context.Context, options ...RequestOption) (*user.User, error) {
 	var u *user.User
-	_, err := c.doRequest(
+	_, _, err := c.doRequest(
 		ctx,
 		http.MethodGet,
 		types.JSON,
@@ -46,7 +46,7 @@ func (c *Client) User(ctx context.Context, options ...RequestOption) (*user.User
 // GetUser gets a user by ID.
 func (c *Client) GetUser(ctx context.Context, userID uint64, options ...RequestOption) (*user.User, error) {
 	var u *user.User
-	_, err := c.doRequest(
+	_, _, err := c.doRequest(
 		ctx,
 		http.MethodGet,
 		types.JSON,
@@ -63,7 +63,7 @@ func (c *Client) GetUser(ctx context.Context, userID uint64, options ...RequestO
 // UpdateUser updates a user.
 func (c *Client) UpdateUser(ctx context.Context, userID uint64, u *user.User, options ...RequestOption) (*user.User, error) {
 	var n *user.User
-	_, err := c.doRequest(
+	_, _, err := c.doRequest(
 		ctx,
 		http.MethodPut,
 		types.JSON,
@@ -79,7 +79,7 @@ func (c *Client) UpdateUser(ctx context.Context, userID uint64, u *user.User, op
 
 // DeleteUser deletes a user.
 func (c *Client) DeleteUser(ctx context.Context, userID uint64, options ...RequestOption) error {
-	_, err := c.doRequest(
+	_, _, err := c.doRequest(
 		ctx,
 		http.MethodDelete,
 		types.JSON,
@@ -91,4 +91,20 @@ func (c *Client) DeleteUser(ctx context.Context, userID uint64, options ...Reque
 	)
 
 	return err
+}
+
+// SignIn performs a user sign-in, returning a bearer token.
+func (c *Client) SignIn(ctx context.Context, u *user.Credentials, options ...RequestOption) ([]byte, error) {
+	_, b, err := c.doRequest(
+		ctx,
+		http.MethodPost,
+		types.JSON,
+		c.endpoint+"sign-in",
+		http.StatusCreated,
+		u,
+		nil,
+		options...,
+	)
+
+	return b, err
 }

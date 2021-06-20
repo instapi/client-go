@@ -7,18 +7,22 @@ import (
 	"net/url"
 	"os"
 
+	"golang.org/x/sync/errgroup"
+
 	"github.com/instapi/client-go/schema"
 	"github.com/instapi/client-go/types"
 )
 
+const detectSizeLimit = 4 * 1024 * 1024
+
 // GetSchema gets the given schema.
-func (c *Client) GetSchema(ctx context.Context, name string, options ...RequestOption) (*schema.Schema, error) {
+func (c *Client) GetSchema(ctx context.Context, account, name string, options ...RequestOption) (*schema.Schema, error) {
 	var s *schema.Schema
-	_, err := c.doRequest(
+	_, _, err := c.doRequest(
 		ctx,
 		http.MethodGet,
 		types.JSON,
-		c.endpoint+"schemas/"+name,
+		c.endpoint+"accounts/"+url.PathEscape(account)+"/schemas/"+url.PathEscape(name),
 		http.StatusOK,
 		nil,
 		&s,
@@ -29,13 +33,13 @@ func (c *Client) GetSchema(ctx context.Context, name string, options ...RequestO
 }
 
 // GetSchemas gets the schema collection.
-func (c *Client) GetSchemas(ctx context.Context, options ...RequestOption) ([]*schema.Schema, string, error) {
+func (c *Client) GetSchemas(ctx context.Context, account string, options ...RequestOption) ([]*schema.Schema, string, error) {
 	var s []*schema.Schema
-	resp, err := c.doRequest(
+	resp, _, err := c.doRequest(
 		ctx,
 		http.MethodGet,
 		types.JSON,
-		c.endpoint+"schemas",
+		c.endpoint+"accounts/"+url.PathEscape(account)+"/schemas",
 		http.StatusOK,
 		nil,
 		&s,
@@ -55,37 +59,66 @@ func (c *Client) GetSchemas(ctx context.Context, options ...RequestOption) ([]*s
 	return s, next, nil
 }
 
-// DetectSchemaFromFile attempts to detect the schema for the given file.
-func (c *Client) DetectSchemaFromFile(ctx context.Context, name, filename string, options ...RequestOption) (*schema.Schema, error) {
+// ImportSchemasFromFile attempts to import the schemas and records from the given file.
+func (c *Client) ImportSchemasFromFile(ctx context.Context, account, filename string, options ...RequestOption) ([]*schema.Import, error) {
 	contentType, err := getContentType(filename)
 
 	if err != nil {
 		return nil, err
 	}
 
-	f, err := os.Open(filename)
+	f, err := os.Open(filename) // nolint: gosec
 
 	if err != nil {
 		return nil, err
 	}
 
-	defer f.Close() // nolint: errcheck
+	defer f.Close() // nolint: gosec
 
-	return c.DetectSchema(ctx, name, contentType, f, options...)
-}
-
-// DetectSchema attempts to detect the schema for the given reader.
-func (c *Client) DetectSchema(ctx context.Context, name, contentType string, r io.Reader, options ...RequestOption) (*schema.Schema, error) {
-	const fileSizeLimit = 16 * 1024 * 1024
-
-	var s *schema.Schema
-	_, err := c.doRequest(
+	var s []*schema.Import
+	_, _, err = c.doRequest(
 		ctx,
 		http.MethodPost,
 		contentType,
-		c.endpoint+"schemas/detect",
+		c.endpoint+"accounts/"+url.PathEscape(account)+"/import",
 		http.StatusOK,
-		io.LimitReader(r, fileSizeLimit),
+		io.LimitReader(f, detectSizeLimit),
+		&s,
+		options...,
+	)
+
+	return s, err
+}
+
+// DetectSchemasFromFile attempts to detect the schema for the given file.
+func (c *Client) DetectSchemasFromFile(ctx context.Context, name, filename string, options ...RequestOption) ([]*schema.Schema, error) {
+	contentType, err := getContentType(filename)
+
+	if err != nil {
+		return nil, err
+	}
+
+	f, err := os.Open(filename) // nolint: gosec
+
+	if err != nil {
+		return nil, err
+	}
+
+	defer f.Close() // nolint: gosec
+
+	return c.DetectSchemas(ctx, name, contentType, f, options...)
+}
+
+// DetectSchemas attempts to detect the schema for the given reader.
+func (c *Client) DetectSchemas(ctx context.Context, name, contentType string, r io.Reader, options ...RequestOption) ([]*schema.Schema, error) {
+	var s []*schema.Schema
+	_, _, err := c.doRequest(
+		ctx,
+		http.MethodPost,
+		contentType,
+		c.endpoint+"detect",
+		http.StatusOK,
+		io.LimitReader(r, detectSizeLimit),
 		&s,
 		append(options, Name(name))...,
 	)
@@ -94,12 +127,12 @@ func (c *Client) DetectSchema(ctx context.Context, name, contentType string, r i
 }
 
 // CreateSchema creates a new schema.
-func (c *Client) CreateSchema(ctx context.Context, s *schema.Schema, options ...RequestOption) error {
-	_, err := c.doRequest(
+func (c *Client) CreateSchema(ctx context.Context, account string, s *schema.Schema, options ...RequestOption) error {
+	_, _, err := c.doRequest(
 		ctx,
 		http.MethodPost,
 		types.JSON,
-		c.endpoint+"schemas",
+		c.endpoint+"accounts/"+url.PathEscape(account)+"/schemas",
 		http.StatusCreated,
 		s,
 		nil,
@@ -109,16 +142,30 @@ func (c *Client) CreateSchema(ctx context.Context, s *schema.Schema, options ...
 	return err
 }
 
-// DetectAndCreateSchemaFromFile attempts to detect and create the schema for
+func (c *Client) createSchemas(ctx context.Context, account string, s []*schema.Schema, options ...RequestOption) error {
+	var g errgroup.Group
+
+	for _, v := range s {
+		v := v
+
+		g.Go(func() error {
+			return c.CreateSchema(ctx, account, v, options...)
+		})
+	}
+
+	return g.Wait()
+}
+
+// DetectAndCreateSchemasFromFile attempts to detect and create the schema for
 // the given file.
-func (c *Client) DetectAndCreateSchemaFromFile(ctx context.Context, name, filename string, options ...RequestOption) (*schema.Schema, error) {
-	s, err := c.DetectSchemaFromFile(ctx, name, filename, options...)
+func (c *Client) DetectAndCreateSchemasFromFile(ctx context.Context, account, name, filename string, options ...RequestOption) ([]*schema.Schema, error) {
+	s, err := c.DetectSchemasFromFile(ctx, name, filename, options...)
 
 	if err != nil {
 		return nil, err
 	}
 
-	err = c.CreateSchema(ctx, s, options...)
+	err = c.createSchemas(ctx, account, s, options...)
 
 	if err != nil {
 		return nil, err
@@ -127,15 +174,15 @@ func (c *Client) DetectAndCreateSchemaFromFile(ctx context.Context, name, filena
 	return s, nil
 }
 
-// DetectAndCreateSchema attempts to detect and create the schema for a reader.
-func (c *Client) DetectAndCreateSchema(ctx context.Context, name, contentType string, r io.Reader, options ...RequestOption) (*schema.Schema, error) {
-	s, err := c.DetectSchema(ctx, name, contentType, r, options...)
+// DetectAndCreateSchemas attempts to detect and create the schema for a reader.
+func (c *Client) DetectAndCreateSchemas(ctx context.Context, account, name, contentType string, r io.Reader, options ...RequestOption) ([]*schema.Schema, error) {
+	s, err := c.DetectSchemas(ctx, name, contentType, r, options...)
 
 	if err != nil {
 		return nil, err
 	}
 
-	err = c.CreateSchema(ctx, s, options...)
+	err = c.createSchemas(ctx, account, s, options...)
 
 	if err != nil {
 		return nil, err
@@ -145,12 +192,12 @@ func (c *Client) DetectAndCreateSchema(ctx context.Context, name, contentType st
 }
 
 // DeleteSchema deletes a schema.
-func (c *Client) DeleteSchema(ctx context.Context, name string, options ...RequestOption) error {
-	_, err := c.doRequest(
+func (c *Client) DeleteSchema(ctx context.Context, account, name string, options ...RequestOption) error {
+	_, _, err := c.doRequest(
 		ctx,
 		http.MethodDelete,
 		types.JSON,
-		c.endpoint+"schemas/"+url.PathEscape(name),
+		c.endpoint+"accounts/"+url.PathEscape(account)+"/schemas/"+url.PathEscape(name),
 		0,
 		nil,
 		nil,

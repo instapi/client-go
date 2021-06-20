@@ -18,6 +18,7 @@ const (
 	CSV      = "text/csv"
 	JSON     = "application/json"
 	ODS      = "application/vnd.oasis.opendocument.spreadsheet"
+	SQL      = "application/sql"
 	SQLite   = "application/x-sqlite3"
 	XLA      = mimeXLS
 	XLS      = mimeXLS

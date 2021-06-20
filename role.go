@@ -3,27 +3,51 @@ package instapi
 import (
 	"context"
 	"net/http"
+	"net/url"
+	"time"
 
-	"github.com/instapi/client-go/role"
 	"github.com/instapi/client-go/types"
 )
 
-// CreateRole creates a role for the user with the given email address.
-func (c *Client) CreateRole(ctx context.Context, accountID, email, r string, options ...RequestOption) (*role.CreateRoleResponse, error) {
-	var n *role.CreateRoleResponse
-	_, err := c.doRequest(
+// AssignRole assigns a account role for the given user.
+func (c *Client) AssignRole(ctx context.Context, account, email, role string, options ...RequestOption) error {
+	_, _, err := c.doRequest(
 		ctx,
 		http.MethodPost,
 		types.JSON,
-		c.endpoint+"accounts/"+accountID+"/roles",
+		c.endpoint+"accounts/"+url.PathEscape(account)+"/roles",
 		0,
 		struct {
 			Email string `json:"email"`
 			Role  string `json:"role"`
-		}{Email: email, Role: r},
-		&n,
+		}{Email: email, Role: role},
+		nil,
 		options...,
 	)
 
-	return n, err
+	return err
+}
+
+// Subscribe creates a subscription to a schema.
+func (c *Client) Subscribe(ctx context.Context, src, dst, schema, role string, expiresAt time.Time, options ...RequestOption) error {
+	_, _, err := c.doRequest(
+		ctx,
+		http.MethodPost,
+		types.JSON,
+		c.endpoint+"accounts/"+url.PathEscape(src)+"/schemas/"+schema+"/roles",
+		0,
+		struct {
+			Account   string    `json:"account"`
+			Role      string    `json:"role"`
+			ExpiresAt time.Time `json:"expiresAt"`
+		}{
+			Account:   dst,
+			Role:      role,
+			ExpiresAt: expiresAt,
+		},
+		nil,
+		options...,
+	)
+
+	return err
 }
